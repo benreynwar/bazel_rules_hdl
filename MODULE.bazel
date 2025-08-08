@@ -1,0 +1,22 @@
+module(
+    name = "rules_hdl",
+    version = "1.0.0",
+)
+
+# Dependencies that bazel_rules_hdl needs
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "rules_cc", version = "0.1.1") 
+bazel_dep(name = "rules_python", version = "1.3.0")
+bazel_dep(name = "rules_license", version = "1.0.0")
+bazel_dep(name = "rules_bison", version = "0.4")
+bazel_dep(name = "rules_flex", version = "0.4") 
+bazel_dep(name = "rules_m4", version = "0.3")
+
+# Python toolchain provided by parent module
+
+# HDL dependencies
+hdl_deps = use_extension("//:extensions.bzl", "hdl_deps_extension")
+use_repo(hdl_deps, "verilator", "net_zlib", "com_icarus_iverilog", "org_sourceware_bzip2", "org_gnu_readline")
+
+# Register the Verilator toolchain
+register_toolchains("//verilator:verilator_toolchain")
