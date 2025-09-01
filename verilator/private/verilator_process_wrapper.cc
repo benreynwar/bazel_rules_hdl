@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <sys/wait.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -117,7 +118,13 @@ int main(int argc, char* argv[]) {
     }
     int result = std::system(cmd.c_str());
     if (result != 0) {
-        return result;
+        // Extract actual exit code from system() return value
+        if (WIFEXITED(result)) {
+            int exit_code = WEXITSTATUS(result);
+            return exit_code;
+        } else {
+            return 1; // Process was terminated by signal
+        }
     }
 
     // Delete any non-deterministic files.
