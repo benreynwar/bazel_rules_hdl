@@ -106,19 +106,27 @@ def _verilator_cc_library(ctx):
 
     transitive_srcs = depset([], transitive = [ctx.attr.module[VerilogInfo].dag])
     all_srcs = [verilog_info_struct.srcs for verilog_info_struct in transitive_srcs.to_list()]
+    all_hdrs = [verilog_info_struct.hdrs for verilog_info_struct in transitive_srcs.to_list()]
     all_data = [verilog_info_struct.data for verilog_info_struct in transitive_srcs.to_list()]
-    all_files = [src for sub_tuple in (all_srcs + all_data) for src in sub_tuple]
-
+    all_sources_and_data = [src for sub_tuple in (all_srcs + all_data) for src in sub_tuple]
+    header_files = [hdr for sub_tuple in all_hdrs for hdr in sub_tuple]
+    
     # Filter out .dat files.
     runfiles = []
     verilog_files = []
-    for file in all_files:
+    for file in all_sources_and_data:
         if file.extension in _RUNFILES:
             runfiles.append(file)
         else:
             verilog_files.append(file)
 
     verilator_output = ctx.actions.declare_directory(ctx.label.name + "-gen")
+    
+    # Collect unique directories containing header files for -I flags
+    header_dirs = {}
+    for hdr_file in header_files:
+        header_dir = hdr_file.dirname
+        header_dirs[header_dir] = True
 
     prefix = "V" + ctx.attr.module_top
 
@@ -131,6 +139,9 @@ def _verilator_cc_library(ctx):
     args.add("--prefix", prefix)
     if ctx.attr.trace:
         args.add("--trace")
+    # Add include directories for header files
+    for header_dir in header_dirs.keys():
+        args.add("-I{}".format(header_dir))
     for verilog_file in verilog_files:
         args.add(verilog_file.path)
     args.add_all(verilator_toolchain.extra_vopts)
@@ -139,13 +150,13 @@ def _verilator_cc_library(ctx):
     env = {}
     if verilator_toolchain._avoid_nondeterministic_outputs:
         env["VERILATOR_AVOID_NONDETERMINISTIC_OUTPUTS"] = "1"
-
+    
     ctx.actions.run(
         arguments = [args],
         mnemonic = "VerilatorCompile",
         executable = ctx.executable._process_wrapper,
         tools = verilator_toolchain.all_files,
-        inputs = verilog_files,
+        inputs = verilog_files + header_files,
         outputs = [verilator_output],
         progress_message = "[Verilator] Compiling {}".format(ctx.label),
         env = env,
